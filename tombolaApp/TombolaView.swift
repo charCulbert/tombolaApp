@@ -23,9 +23,9 @@ struct SpriteView: PlatformViewRepresentable {
     #if os(iOS)
     func makeUIView(context: Context) -> SKView {
         let view = controller.setupSKView()
-        view.showsFPS = true
-        view.showsPhysics = true
-        view.showsNodeCount = true
+        view.showsFPS = false
+        view.showsPhysics = false
+        view.showsNodeCount = false
         print("DEBUG: iOS SpriteView created")
         return view
     }
@@ -36,9 +36,9 @@ struct SpriteView: PlatformViewRepresentable {
     #else
     func makeNSView(context: Context) -> SKView {
         let view = controller.setupSKView()
-        view.showsFPS = true
-        view.showsPhysics = true
-        view.showsNodeCount = true
+        view.showsFPS = false
+        view.showsPhysics = false
+        view.showsNodeCount = false
         print("DEBUG: macOS SpriteView created")
         return view
     }
@@ -60,19 +60,39 @@ struct TombolaView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Physics simulation view
-            SpriteView(controller: controller)
-                .frame(maxWidth: .infinity,
-                       minHeight: 400,
-                       maxHeight: .infinity
-                )
-                .background(Color.black)
-                .foregroundColor(.white)  // Add this line
+            ZStack {
+                SpriteView(controller: controller)
+                    .frame(maxWidth: .infinity,
+                           minHeight: 400,
+                           maxHeight: .infinity
+                    )
+                    .background(Color.black)
+                
+                // Add Ball button overlay
+                VStack {
+                    Spacer()
+                    Button(action: {
+                        controller.addBall()
+                    }) {
+                        HStack {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                            Text("Add Ball")
+                        }
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 8)
+                        .background(Color.black.opacity(0.5))
+                        .cornerRadius(8)
+                    }
+                    .padding(.bottom, 16)
+                }
+            }
             
             // Controls section
-            VStack(spacing: 16) {
+            VStack(spacing: 12) {
                 HStack(spacing: 20) {
                     // Left column of controls
-                    VStack {
+                    VStack(spacing: 8) {
                         // Gravity control
                         SliderControl(
                             title: "Gravity",
@@ -80,9 +100,9 @@ struct TombolaView: View {
                                 get: { controller.model.gravityStrength },
                                 set: { controller.updateGravity($0) }
                             ),
-                            range: -0.9...0,
-                            step: 0.01,
-                            format: "%.2f"
+                            range: -2.0...0,
+                            step: 0.1,
+                            format: "%.1f"
                         )
                         
                         // Rotation control
@@ -92,36 +112,24 @@ struct TombolaView: View {
                                 get: { controller.model.rotationSpeed },
                                 set: { controller.updateRotationSpeed($0) }
                             ),
-                            range: 0...1,
-                            step: 0.01,
-                            format: "%.2f"
-                        )
-                        
-                        // Friction control
-                        SliderControl(
-                            title: "Friction",
-                            value: Binding(
-                                get: { controller.model.friction },
-                                set: { controller.updateFriction($0) }
-                            ),
-                            range: 0...0.5,
-                            step: 0.01,
-                            format: "%.2f"
+                            range: 0...5.0,
+                            step: 0.1,
+                            format: "%.1f"
                         )
                     }
                     
                     // Right column of controls
-                    VStack {
-                        // Bounce control
+                    VStack(spacing: 8) {
+                        // Restitution control
                         SliderControl(
-                            title: "Bounce",
+                            title: "Restitution",
                             value: Binding(
-                                get: { controller.model.bounciness },
-                                set: { controller.updateBounciness($0) }
+                                get: { controller.model.restitution },
+                                set: { controller.updateRestitution($0) }
                             ),
-                            range: 0.7...0.999,
-                            step: 0.001,
-                            format: "%.3f"
+                            range: 0.0...1.0,
+                            step: 0.01,
+                            format: "%.2f"
                         )
                         
                         // Ball size control
@@ -135,23 +143,12 @@ struct TombolaView: View {
                             step: 1,
                             format: "%.0f"
                         )
-                        
-                        // Add Ball button
-                        Button(action: {
-                            controller.addBall()
-                        }) {
-                            HStack {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title2)
-                                Text("Add Ball")
-                            }
-                            .padding(.vertical, 8)
-                        }
                     }
                 }
+                .padding(.top, 12)
                 
                 // Bottom controls
-                VStack {
+                VStack(spacing: 8) {
                     // Bottom control for escape holes
                     IntSliderControl(
                         title: "Escape Holes",
@@ -174,12 +171,11 @@ struct TombolaView: View {
                         format: "%.1f"
                     )
                 }
+                .padding(.bottom, 16)
             }
-            .padding()
+            .padding(.horizontal)
             .background(Color(.darkGray))
             .foregroundColor(.white)
-                
-        
         }
     }
 }
@@ -187,5 +183,6 @@ struct TombolaView: View {
 struct TombolaView_Previews: PreviewProvider {
     static var previews: some View {
         TombolaView()
+            .frame(width: 800, height: 600)
     }
 }

@@ -28,24 +28,20 @@ struct TombolaModel {
     // MARK: - Physics Parameters
     
     /// Strength of gravity (negative for downward force)
-    /// Range: -0.9...0
-    var gravityStrength: CGFloat = -0.50
+    /// Range: -2.0...0
+    var gravityStrength: CGFloat = -0.8
     
     /// Number of balls in the simulation
     /// Range: 1...20
     var ballCount: Int = 3
     
-    /// Speed of rotation for the circular boundary
-    /// Range: 0...1, where 0 is stationary
+    /// Rotation speed of the container in radians per second
+    /// Range: 0...5.0
     var rotationSpeed: CGFloat = 0.50
     
-    /// Bounciness of balls (1.0 = perfect bounce, 0.0 = no bounce)
-    /// Range: 0.7...0.999
-    var bounciness: CGFloat = 0.99
-    
-    /// Friction coefficient for ball-wall collisions
-    /// Range: 0...0.5
-    var friction: CGFloat = 0.02
+    /// Restitution coefficient (1.0 = perfect energy retention, 0.0 = no bounce)
+    /// Range: 0.0...1.0
+    var restitution: CGFloat = 1.0
     
     /// Size (radius) of each ball in points
     /// Range: 5...20
@@ -55,9 +51,9 @@ struct TombolaModel {
     /// Range: 0...8
     var holeCount: Int = 0
     
-    /// Decay time in seconds for balls (0 means no decay)
-    /// Range: 0...30
-    var decayTime: CGFloat = 5
+    /// Ball lifetime in seconds before they fade and disappear
+    /// Range: 0...30, where 0 means infinite lifetime
+    var decayTime: CGFloat = 5.0
     
     // MARK: - Simulation State
     

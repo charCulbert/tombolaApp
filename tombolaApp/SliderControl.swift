@@ -29,7 +29,6 @@ struct SliderControl: View {
             Slider(value: value, in: range, step: step)
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 4)
     }
 }
 
@@ -58,6 +57,5 @@ struct IntSliderControl: View {
             ), in: Double(range.lowerBound)...Double(range.upperBound), step: 1)
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 4)
     }
 }

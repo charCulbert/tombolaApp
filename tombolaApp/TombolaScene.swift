@@ -7,7 +7,7 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
     
     private class BallNode: SKShapeNode {
         let createdTime: TimeInterval
-        var remainingLifetimeNormalized: TimeInterval  // Default lifetime in seconds
+        var remainingLifetimeNormalized: TimeInterval
         var color: SKColor
         let parentCircleRadius: CGFloat
         var initialLifetime: TimeInterval
@@ -23,40 +23,39 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
             return lifetime / initialLifetime
         }
         
-        init(radius: CGFloat, color: SKColor, createdTime: TimeInterval, circleRadius: CGFloat) {
-            self.createdTime = createdTime
-            self.color = color
-            self.parentCircleRadius = circleRadius
-            self.remainingLifetimeNormalized = 5.0  // Default value if not set
-            self.initialLifetime = remainingLifetimeNormalized
-            self.lifetime = initialLifetime
-            super.init()
+        func updateLifetimeValue(_ newLifetime: TimeInterval) {
+            // If we're switching to infinite lifetime
+            if newLifetime == 0 {
+                initialLifetime = 0
+                lifetime = TimeInterval.infinity
+                alpha = 1.0  // Reset opacity to full
+                _isExpired = false
+                return
+            }
             
-            let rect = CGRect(x: -radius, y: -radius, width: radius * 2, height: radius * 2)
-            let circlePath = CGPath(ellipseIn: rect, transform: nil)
-            self.path = circlePath
-            self.fillColor = color
-            self.strokeColor = color
-            self.name = "ball"
+            // If we're coming from infinite lifetime
+            if initialLifetime == 0 {
+                initialLifetime = newLifetime
+                lifetime = newLifetime
+                return
+            }
             
-            // Set up physics body
-            self.physicsBody = SKPhysicsBody(circleOfRadius: radius)
-            self.physicsBody?.categoryBitMask = PhysicsCategory.ball.rawValue
-            self.physicsBody?.collisionBitMask = PhysicsCategory.container.rawValue | PhysicsCategory.ball.rawValue | PhysicsCategory.hole.rawValue
-            self.physicsBody?.contactTestBitMask = PhysicsCategory.container.rawValue | PhysicsCategory.ball.rawValue | PhysicsCategory.hole.rawValue
-            self.physicsBody?.restitution = 0.8
-            self.physicsBody?.linearDamping = 0.5
-            self.physicsBody?.angularDamping = 0.5
-            self.physicsBody?.friction = 0.2
-            self.physicsBody?.allowsRotation = true
-            self.physicsBody?.mass = 1.0
-        }
-        
-        required init?(coder aDecoder: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
+            // If we're changing between finite lifetimes
+            // Preserve the proportion of remaining lifetime
+            let proportion = lifetime / initialLifetime
+            initialLifetime = newLifetime
+            lifetime = newLifetime * proportion
+            
+            // Update alpha to match new proportion
+            alpha = CGFloat(proportion)
         }
         
         func updateLifetime(currentTime: TimeInterval) -> TimeInterval {
+            // If lifetime is 0, ball never expires
+            if initialLifetime == 0 {
+                return TimeInterval.infinity
+            }
+            
             if let lastUpdate = lastUpdateTime {
                 let delta = currentTime - lastUpdate
                 lifetime -= delta
@@ -71,6 +70,39 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
             
             lastUpdateTime = currentTime
             return lifetime
+        }
+        
+        init(radius: CGFloat, color: SKColor, createdTime: TimeInterval, circleRadius: CGFloat, lifetime: TimeInterval) {
+            self.createdTime = createdTime
+            self.color = color
+            self.parentCircleRadius = circleRadius
+            self.remainingLifetimeNormalized = lifetime
+            self.initialLifetime = lifetime
+            self.lifetime = lifetime
+            super.init()
+            
+            let rect = CGRect(x: -radius, y: -radius, width: radius * 2, height: radius * 2)
+            let circlePath = CGPath(ellipseIn: rect, transform: nil)
+            self.path = circlePath
+            self.fillColor = .white
+            self.strokeColor = .clear
+            self.lineWidth = 0
+            self.name = "ball"
+            
+            // Set up physics body
+            self.physicsBody = SKPhysicsBody(circleOfRadius: radius)
+            self.physicsBody?.categoryBitMask = PhysicsCategory.ball.rawValue
+            self.physicsBody?.collisionBitMask = PhysicsCategory.container.rawValue | PhysicsCategory.ball.rawValue | PhysicsCategory.hole.rawValue
+            self.physicsBody?.contactTestBitMask = PhysicsCategory.container.rawValue | PhysicsCategory.ball.rawValue | PhysicsCategory.hole.rawValue
+            self.physicsBody?.restitution = 1.0  // Default bounce
+            self.physicsBody?.linearDamping = 0.1  // Reduced air resistance
+            self.physicsBody?.angularDamping = 0.1  // Reduced spin resistance
+            self.physicsBody?.allowsRotation = true
+            self.physicsBody?.mass = 1.0
+        }
+        
+        required init?(coder aDecoder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
         }
         
         func colorToString() -> String {
@@ -111,19 +143,11 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
         }
     }
     
-    /// Ball bounciness (1.0 = perfect bounce)
-    /// Updated by: TombolaController.updateBounciness()
-    var bounciness: CGFloat = 0.980 {
+    /// Ball restitution coefficient (energy retention)
+    /// Updated by: TombolaController.updateRestitution()
+    var restitution: CGFloat = 1.0 {
         didSet {
-            updateBounciness()
-        }
-    }
-    
-    /// Surface friction coefficient
-    /// Updated by: TombolaController.updateFriction()
-    var friction: CGFloat = 0.02 {
-        didSet {
-            updateBounciness()
+            updateRestitution()
         }
     }
     
@@ -154,9 +178,13 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
         }
     }
     
-    /// Decay time in seconds (0 means no decay)
+    /// Remaining lifetime for balls in seconds
     /// Updated by: TombolaController.updateDecayTime()
-    var remainingLifetimeNormalized: CGFloat = 0
+    var remainingLifetimeNormalized: CGFloat = 5.0 {
+        didSet {
+            updateBallLifetimes()
+        }
+    }
     
     // MARK: - Private Properties
     
@@ -200,8 +228,6 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
         physicsWorld.contactDelegate = self
     }
     
-    // MARK: - Boundary Creation
-    
     /// Creates the circular boundary with holes
     /// This is the main container that holds the balls
     private func createCircularBoundary() {
@@ -212,14 +238,18 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
         
         // Remove existing container if any
         container?.removeFromParent()
+        container = nil  // Clear the reference
         
         let containerNode = SKShapeNode()
         containerNode.name = "container"
+        addChild(containerNode)
+        container = containerNode  // Set the reference before creating segments
         
         // Create wall segments, skipping hole positions
         var segmentBodies: [SKPhysicsBody] = []
         let segmentArc = CGFloat.pi / 8  // 16 segments total
         
+        // Create new segments, skipping holes
         for i in 0..<16 {
             if !holeSegments.contains(i) {
                 let segmentBody = createWallSegment(index: i, arc: segmentArc)
@@ -231,9 +261,6 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
         let compoundBody = SKPhysicsBody(bodies: segmentBodies)
         setupWallPhysics(for: compoundBody)
         containerNode.physicsBody = compoundBody
-        
-        addChild(containerNode)
-        container = containerNode
         
         // Restore rotation state and angle
         container?.zRotation = currentRotation  // Restore the rotation angle
@@ -299,6 +326,15 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
                    startAngle: startAngle, endAngle: endAngle,
                    clockwise: false)
         
+        // Create visual representation of the segment
+        let segmentNode = SKShapeNode()
+        segmentNode.path = path
+        segmentNode.strokeColor = .white
+        segmentNode.lineWidth = 1
+        segmentNode.fillColor = .clear
+        segmentNode.name = "wallSegment"  // Add name for identification
+        container?.addChild(segmentNode)  // Add to container instead of scene
+        
         let body = SKPhysicsBody(edgeChainFrom: path)
         body.isDynamic = false
         body.affectedByGravity = false
@@ -306,8 +342,8 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
         body.categoryBitMask = PhysicsCategory.container.rawValue
         body.collisionBitMask = PhysicsCategory.ball.rawValue
         body.contactTestBitMask = PhysicsCategory.ball.rawValue
-        body.restitution = bounciness
-        body.friction = friction
+        body.restitution = restitution
+        body.friction = 0
         
         return body
     }
@@ -325,12 +361,11 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
     // MARK: - Physics Updates
     
     /// Updates the physics properties of all objects
-    private func updateBounciness() {
-        container?.physicsBody?.restitution = bounciness
+    private func updateRestitution() {
+        container?.physicsBody?.restitution = restitution
         
         for ball in balls {
-            ball.physicsBody?.restitution = bounciness
-            ball.physicsBody?.friction = friction
+            ball.physicsBody?.restitution = restitution
             ball.physicsBody?.linearDamping = 0
             ball.physicsBody?.angularDamping = 0
         }
@@ -397,8 +432,7 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
             body.isDynamic = true
             body.affectedByGravity = true
             body.allowsRotation = true
-            body.restitution = bounciness
-            body.friction = friction
+            body.restitution = restitution
             body.mass = 1.0
             body.categoryBitMask = PhysicsCategory.ball.rawValue
             body.collisionBitMask = PhysicsCategory.container.rawValue | PhysicsCategory.ball.rawValue | PhysicsCategory.hole.rawValue
@@ -408,20 +442,50 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
         }
     }
     
+    private func updateBallLifetimes() {
+        for ball in balls {
+            ball.updateLifetimeValue(TimeInterval(remainingLifetimeNormalized))
+        }
+    }
+    
     /// Creates a new ball with specified properties
     private func createBall(index: Int) -> BallNode {
         let currentTime = Date().timeIntervalSinceReferenceDate
         let colors: [SKColor] = [.red, .green, .blue, .yellow, .orange, .purple, .cyan]
         
         let ball = BallNode(radius: ballSize,
-                          color: colors[index % colors.count],
+                          color: .white,
                           createdTime: currentTime,
-                          circleRadius: circleRadius)
-        ball.remainingLifetimeNormalized = TimeInterval(remainingLifetimeNormalized)
+                          circleRadius: circleRadius,
+                          lifetime: TimeInterval(remainingLifetimeNormalized))
         ball.initialLifetime = ball.remainingLifetimeNormalized
         ball.lifetime = ball.initialLifetime
         
         return ball
+    }
+    
+    /// Creates a new ball at a random position in the middle 50% of the circle
+    func addBallInRandomPosition() {
+        let ball = BallNode(radius: ballSize,
+                           color: .white,
+                           createdTime: Date().timeIntervalSinceReferenceDate,
+                           circleRadius: circleRadius,
+                           lifetime: TimeInterval(remainingLifetimeNormalized))
+        
+        // Calculate random position in middle 50% of circle
+        let maxOffset = circleRadius * 0.25 // 25% of radius for middle 50%
+        let randomX = CGFloat.random(in: -maxOffset...maxOffset)
+        let randomY = CGFloat.random(in: -maxOffset...maxOffset)
+        ball.position = CGPoint(x: randomX, y: randomY)
+        
+        // Update physics properties
+        ball.physicsBody?.restitution = restitution
+        ball.physicsBody?.linearDamping = 0.1  // Reduced air resistance
+        ball.physicsBody?.angularDamping = 0.1  // Reduced spin resistance
+        ball.physicsBody?.allowsRotation = true
+        
+        addChild(ball)
+        balls.append(ball)
     }
     
     // MARK: - Scene Updates
@@ -460,6 +524,13 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
            let ball1 = firstBody.node as? BallNode,
            let ball2 = secondBody.node as? BallNode {
             
+            // Generate MIDI notes for both balls
+            let velocity1 = UInt8(min(127, max(1, ball1.normalizedLifetime * 127)))
+            let velocity2 = UInt8(min(127, max(1, ball2.normalizedLifetime * 127)))
+            
+            TombolaMIDI.shared.makeNote(velocity: velocity1)
+            TombolaMIDI.shared.makeNote(velocity: velocity2)
+            
             // Report collision for first ball
             let jsonString1 = String(format: """
                 {"color":"%@","lifetimeRemaining":"%.2f","normalizedLifetimeRemaining":"%.3f","collidedWith":"ball"}
@@ -489,6 +560,10 @@ class TombolaScene: SKScene, SKPhysicsContactDelegate {
                       firstBody.node as? BallNode : 
                       secondBody.node as? BallNode
             if let ball = ball {
+                // Generate MIDI note for wall collision
+                let velocity = UInt8(min(127, max(1, ball.normalizedLifetime * 127)))
+                TombolaMIDI.shared.makeNote(velocity: velocity)
+                
                 let jsonString = String(format: """
                     {"color":"%@","lifetimeRemaining":"%.2f","normalizedLifetimeRemaining":"%.3f","collidedWith":"wall"}
                     """,

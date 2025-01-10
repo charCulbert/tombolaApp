@@ -40,8 +40,7 @@ class TombolaController: ObservableObject {
         scene.gravityStrength = model.gravityStrength
         scene.ballCount = model.ballCount
         scene.rotationSpeed = model.rotationSpeed
-        scene.bounciness = model.bounciness
-        scene.friction = model.friction
+        scene.restitution = model.restitution
         scene.ballSize = model.ballSize
         scene.holeCount = model.holeCount
         scene.remainingLifetimeNormalized = model.decayTime
@@ -53,7 +52,7 @@ class TombolaController: ObservableObject {
         print("DEBUG: - Decay: \(model.decayTime)")
         
         view.presentScene(scene)
-        view.showsPhysics = true
+        view.showsPhysics = false  // Turn off physics debug visualization
         view.showsFPS = true
         view.showsNodeCount = true
         view.ignoresSiblingOrder = true
@@ -69,49 +68,36 @@ class TombolaController: ObservableObject {
     
     /// Updates gravity strength in model and physics
     func updateGravity(_ value: CGFloat) {
-        // print("DEBUG: Updating gravity to \(value)")
         model.gravityStrength = value
         scene?.gravityStrength = value
     }
     
     /// Updates ball count in model and physics
     func updateBallCount(_ value: Int) {
-        // print("DEBUG: Updating ball count to \(value)")
         model.ballCount = value
         scene?.ballCount = value
     }
     
     /// Updates rotation speed in model and physics
     func updateRotationSpeed(_ value: CGFloat) {
-        // print("DEBUG: Updating rotation to \(value)")
         model.rotationSpeed = value
         scene?.rotationSpeed = value
     }
     
-    /// Updates bounciness in model and physics
-    func updateBounciness(_ value: CGFloat) {
-        // print("DEBUG: Updating bounciness to \(value)")
-        model.bounciness = value
-        scene?.bounciness = value
-    }
-    
-    /// Updates friction in model and physics
-    func updateFriction(_ value: CGFloat) {
-        // print("DEBUG: Updating friction to \(value)")
-        model.friction = value
-        scene?.friction = value
+    /// Updates restitution in model and physics
+    func updateRestitution(_ value: CGFloat) {
+        model.restitution = value
+        scene?.restitution = value
     }
     
     /// Updates ball size in model and physics
     func updateBallSize(_ value: CGFloat) {
-        // print("DEBUG: Updating ball size to \(value)")
         model.ballSize = value
         scene?.ballSize = value
     }
     
     /// Updates hole count in model and physics
     func updateHoleCount(_ value: Int) {
-        // print("DEBUG: Updating hole count to \(value)")
         model.holeCount = value
         scene?.holeCount = value
     }
@@ -119,7 +105,6 @@ class TombolaController: ObservableObject {
     /// Updates the decay time for balls
     /// - Parameter value: New decay time value (0-30 seconds)
     func updateDecayTime(_ value: CGFloat) {
-        // print("DEBUG: Updating decay time to \(value)")
         model.decayTime = value
         scene?.remainingLifetimeNormalized = value
     }
@@ -127,6 +112,6 @@ class TombolaController: ObservableObject {
     /// Adds a single ball to the simulation
     func addBall() {
         model.ballCount += 1
-        scene?.ballCount = model.ballCount
+        scene?.addBallInRandomPosition()
     }
 }
